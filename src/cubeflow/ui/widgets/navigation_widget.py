@@ -1,5 +1,11 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class NavigationWidget(QWidget):
@@ -9,23 +15,39 @@ class NavigationWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self.previous_button = QPushButton("Zurück")
-        self.previous_button.setObjectName("prevButton")
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("stepProgress")
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(8)
 
-        self.next_button = QPushButton("Weiter")
+        self.previous_button = QPushButton("‹  Zurück")
+        self.previous_button.setObjectName("prevButton")
+        self.previous_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.next_button = QPushButton("Weiter  ›")
         self.next_button.setObjectName("nextButton")
+        self.next_button.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.previous_button.clicked.connect(self.previous_clicked.emit)
         self.next_button.clicked.connect(self.next_clicked.emit)
 
-        layout = QHBoxLayout()
-        layout.addStretch()
-        layout.addWidget(self.previous_button)
-        layout.addWidget(self.next_button)
-        layout.addStretch()
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self.previous_button)
+        buttons_layout.addWidget(self.next_button)
+        buttons_layout.addStretch()
+
+        layout = QVBoxLayout()
+        layout.setSpacing(16)
+        layout.addWidget(self.progress_bar)
+        layout.addLayout(buttons_layout)
 
         self.setLayout(layout)
 
     def set_navigation_enabled(self, has_previous: bool, has_next: bool) -> None:
         self.previous_button.setEnabled(has_previous)
         self.next_button.setEnabled(has_next)
+
+    def set_progress(self, current_step: int, total_steps: int) -> None:
+        self.progress_bar.setRange(0, total_steps)
+        self.progress_bar.setValue(current_step)

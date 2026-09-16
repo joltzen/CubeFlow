@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("CubeFlow")
-        self.resize(1000, 700)
+        self.resize(1080, 760)
 
         self.scramble_generator = ScrambleGenerator()
         self.current_step = 0
@@ -50,8 +50,11 @@ class MainWindow(QMainWindow):
         self.navigation_widget.previous_clicked.connect(self.previous_step)
 
         central_widget = QWidget()
+        central_widget.setObjectName("centralWidget")
 
         layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(20)
 
         layout.addWidget(self.scramble_widget)
         layout.addWidget(self.status_label)
@@ -96,11 +99,18 @@ class MainWindow(QMainWindow):
         )
 
         self.status_label.setText(self._status_text(pending_move))
+        self._set_status_state("done" if pending_move is None else "pending")
 
         self.navigation_widget.set_navigation_enabled(
             has_previous=self.current_step > 0,
             has_next=self.current_step < len(self.scramble),
         )
+        self.navigation_widget.set_progress(self.current_step, len(self.scramble))
+
+    def _set_status_state(self, state: str) -> None:
+        self.status_label.setProperty("state", state)
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
 
     def _status_text(self, pending_move: Move | None) -> str:
         step_info = f"Schritt {self.current_step} / {len(self.scramble)}"

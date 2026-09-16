@@ -1,43 +1,111 @@
+* {
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
 QMainWindow {
-    background-color: #f5f5f5;
+    background-color: #1b1c22;
+}
+
+QWidget#centralWidget {
+    background-color: #1b1c22;
+}
+
+/* Scramble card */
+
+QWidget#scrambleCard {
+    background-color: #24252e;
+    border: 1px solid #33343f;
+    border-radius: 14px;
 }
 
 QLabel#scrambleLabel {
-    color: #222222;
-    font-size: 24px;
-    font-weight: bold;
+    color: #f2f2f7;
+    font-size: 22px;
+    font-weight: 600;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
 
-    padding: 16px;
-
-    border: 1px solid #cccccc;
-    border-radius: 8px;
-
-    background-color: white;
+    padding: 20px;
 }
 
-QPushButton#nextButton, QPushButton#prevButton {
-    color: #222222;
-    font-size: 16px;
-
-    padding: 10px 24px;
-
-    border: 1px solid #cccccc;
-    border-radius: 6px;
-
-    background-color: white;
-}
-
-QPushButton#nextButton:hover, QPushButton#prevButton:hover {
-    background-color: #eeeeee;
-}
-
-QPushButton#nextButton:disabled, QPushButton#prevButton:disabled {
-    color: #aaaaaa;
-    background-color: #f5f5f5;
-}
+/* Status line */
 
 QLabel#statusLabel {
-    color: #222222;
-    font-size: 16px;
-    padding: 4px;
+    color: #9a9ba8;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 2px;
+}
+
+QLabel#statusLabel[state="done"] {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+/* Progress bar */
+
+QProgressBar#stepProgress {
+    background-color: #24252e;
+    border: none;
+    border-radius: 4px;
+    height: 8px;
+}
+
+QProgressBar#stepProgress::chunk {
+    background-color: #00e5ff;
+    border-radius: 4px;
+}
+
+/* Buttons */
+
+QPushButton#nextButton {
+    color: #06232a;
+    font-size: 15px;
+    font-weight: 600;
+
+    padding: 12px 30px;
+
+    border: none;
+    border-radius: 10px;
+
+    background-color: #00e5ff;
+}
+
+QPushButton#nextButton:hover {
+    background-color: #33ebff;
+}
+
+QPushButton#nextButton:pressed {
+    background-color: #00b8cc;
+}
+
+QPushButton#nextButton:disabled {
+    color: #5b5c66;
+    background-color: #2a2b33;
+}
+
+QPushButton#prevButton {
+    color: #d0d1db;
+    font-size: 15px;
+    font-weight: 600;
+
+    padding: 12px 30px;
+
+    border: 1px solid #3a3b46;
+    border-radius: 10px;
+
+    background-color: transparent;
+}
+
+QPushButton#prevButton:hover {
+    background-color: #2a2b36;
+    border-color: #4a4b58;
+}
+
+QPushButton#prevButton:pressed {
+    background-color: #202128;
+}
+
+QPushButton#prevButton:disabled {
+    color: #55565f;
+    border-color: #2a2b33;
 }

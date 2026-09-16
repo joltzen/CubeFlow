@@ -1,7 +1,14 @@
 import math
 
 from PySide6.QtCore import QPointF, Qt, QTimer
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen, QPolygonF
+from PySide6.QtGui import (
+    QColor,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PySide6.QtWidgets import QWidget
 
 from cubeflow.cube.cube_state import FACE_NORMALS, CubeState, Vector3
@@ -196,7 +203,12 @@ class CubeWidget(QWidget):
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        painter.fillRect(self.rect(), QColor("#202020"))
+        background_path = QPainterPath()
+        background_path.addRoundedRect(
+            0, 0, self.width(), self.height(), 16, 16
+        )
+        painter.fillPath(background_path, QColor("#202020"))
+        painter.setClipPath(background_path)
 
         face_depths = []
 
