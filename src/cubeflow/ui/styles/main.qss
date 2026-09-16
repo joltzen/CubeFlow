@@ -15,7 +15,7 @@ QLabel#scrambleLabel {
     background-color: white;
 }
 
-QPushButton#nextButton {
+QPushButton#nextButton, QPushButton#prevButton {
     color: #222222;
     font-size: 16px;
 
@@ -27,6 +27,17 @@ QPushButton#nextButton {
     background-color: white;
 }
 
-QPushButton#nextButton:hover {
+QPushButton#nextButton:hover, QPushButton#prevButton:hover {
     background-color: #eeeeee;
+}
+
+QPushButton#nextButton:disabled, QPushButton#prevButton:disabled {
+    color: #aaaaaa;
+    background-color: #f5f5f5;
+}
+
+QLabel#statusLabel {
+    color: #222222;
+    font-size: 16px;
+    padding: 4px;
 }
