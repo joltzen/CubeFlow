@@ -54,7 +54,7 @@ _PROJECTION_SCALE = 0.28
 
 _DEGREES_PER_PIXEL = 0.4
 _ANIMATION_FRAME_INTERVAL_MS = 16
-_LAYER_ANIMATION_STEPS_TOTAL = 34
+_DEFAULT_LAYER_ANIMATION_STEPS_TOTAL = 100
 
 _INITIAL_ROTATION_X_DEG = 35.264
 _INITIAL_ROTATION_Y_DEG = -45
@@ -146,6 +146,7 @@ class CubeWidget(QWidget):
 
         self._layer_animation: _LayerAnimation | None = None
         self._layer_animation_step = 0
+        self._layer_animation_steps_total = _DEFAULT_LAYER_ANIMATION_STEPS_TOTAL
         self._pending_state_after: CubeState | None = None
 
         self._layer_animation_timer = QTimer(self)
@@ -183,6 +184,9 @@ class CubeWidget(QWidget):
     def set_state(self, cube_state: CubeState) -> None:
         self.cube_state = cube_state
         self.update()
+
+    def set_turn_speed(self, steps_total: int) -> None:
+        self._layer_animation_steps_total = max(1, steps_total)
 
     def reset_to_solved(self) -> None:
         self._layer_animation_timer.stop()
@@ -227,7 +231,7 @@ class CubeWidget(QWidget):
         assert animation is not None
 
         self._layer_animation_step += 1
-        t = min(1.0, self._layer_animation_step / _LAYER_ANIMATION_STEPS_TOTAL)
+        t = min(1.0, self._layer_animation_step / self._layer_animation_steps_total)
 
         animation.current_angle = animation.target_angle * _smoothstep(t)
         self.update()

@@ -131,3 +131,79 @@ QPushButton#newScrambleButton:hover {
 QPushButton#newScrambleButton:pressed {
     background-color: #1e1f26;
 }
+
+QPushButton#newScrambleButton:disabled {
+    color: #45464f;
+}
+
+QPushButton#autoScrambleButton {
+    color: #9a9ba8;
+    font-size: 13px;
+    font-weight: 600;
+
+    padding: 8px 20px;
+
+    border: none;
+    border-radius: 8px;
+
+    background-color: transparent;
+}
+
+QPushButton#autoScrambleButton:hover {
+    color: #d0d1db;
+    background-color: #24252e;
+}
+
+QPushButton#autoScrambleButton:pressed {
+    background-color: #1e1f26;
+}
+
+QPushButton#autoScrambleButton:disabled {
+    color: #45464f;
+}
+
+QPushButton#autoScrambleButton[active="true"] {
+    color: #ff6b6b;
+}
+
+QPushButton#autoScrambleButton[active="true"]:hover {
+    background-color: #2e2023;
+}
+
+/* Speed control */
+
+QLabel#speedCaption {
+    color: #9a9ba8;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QLabel#speedLabel {
+    color: #d0d1db;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QSlider#speedSlider::groove:horizontal {
+    background-color: #2a2b33;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider#speedSlider::sub-page:horizontal {
+    background-color: #00e5ff;
+    height: 4px;
+    border-radius: 2px;
+}
+
+QSlider#speedSlider::handle:horizontal {
+    background-color: #f2f2f7;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+
+QSlider#speedSlider::handle:horizontal:hover {
+    background-color: #ffffff;
+}

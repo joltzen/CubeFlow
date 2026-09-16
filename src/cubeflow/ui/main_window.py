@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
         self.resize(1080, 760)
 
         self.scramble_generator = ScrambleGenerator()
+        self._auto_scrambling = False
         self.setup_ui()
 
     def setup_ui(self) -> None:
@@ -46,7 +47,9 @@ class MainWindow(QMainWindow):
         self.navigation_widget.next_clicked.connect(self.next_step)
         self.navigation_widget.previous_clicked.connect(self.previous_step)
         self.navigation_widget.new_scramble_clicked.connect(self.start_new_scramble)
-        self.cube_widget.turn_finished.connect(self._preview_pending_move)
+        self.navigation_widget.auto_scramble_clicked.connect(self.toggle_auto_scramble)
+        self.navigation_widget.speed_changed.connect(self.cube_widget.set_turn_speed)
+        self.cube_widget.turn_finished.connect(self._on_turn_finished)
 
         central_widget = QWidget()
         central_widget.setObjectName("centralWidget")
@@ -65,12 +68,47 @@ class MainWindow(QMainWindow):
         self.start_new_scramble()
 
     def start_new_scramble(self) -> None:
+        self._stop_auto_scramble()
+
         self.scramble = self.scramble_generator.generate()
         self.current_step = 0
 
         self.cube_widget.reset_to_solved()
         self._preview_pending_move()
         self._update_status_ui()
+
+    def toggle_auto_scramble(self) -> None:
+        if self._auto_scrambling:
+            self._stop_auto_scramble()
+        else:
+            self._start_auto_scramble()
+
+    def _start_auto_scramble(self) -> None:
+        if self.current_step >= len(self.scramble):
+            return
+
+        self._auto_scrambling = True
+        self.navigation_widget.set_auto_scrambling(True)
+        self.next_step()
+
+    def _stop_auto_scramble(self) -> None:
+        if not self._auto_scrambling:
+            return
+
+        self._auto_scrambling = False
+        self.navigation_widget.set_auto_scrambling(False)
+        self._update_status_ui()
+
+    def _on_turn_finished(self) -> None:
+        self._preview_pending_move()
+
+        if not self._auto_scrambling:
+            return
+
+        if self.current_step < len(self.scramble):
+            self.next_step()
+        else:
+            self._stop_auto_scramble()
 
     def next_step(self) -> None:
         if self.current_step >= len(self.scramble):
@@ -127,8 +165,11 @@ class MainWindow(QMainWindow):
         self._set_status_state("done" if pending_move is None else "pending")
 
         self.navigation_widget.set_navigation_enabled(
-            has_previous=self.current_step > 0,
-            has_next=self.current_step < len(self.scramble),
+            has_previous=self.current_step > 0 and not self._auto_scrambling,
+            has_next=self.current_step < len(self.scramble) and not self._auto_scrambling,
+        )
+        self.navigation_widget.set_auto_scramble_enabled(
+            self._auto_scrambling or self.current_step < len(self.scramble)
         )
         self.navigation_widget.set_progress(self.current_step, len(self.scramble))
 
