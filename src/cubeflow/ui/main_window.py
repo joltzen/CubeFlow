@@ -48,6 +48,7 @@ class MainWindow(QMainWindow):
 
         self.navigation_widget.next_clicked.connect(self.next_step)
         self.navigation_widget.previous_clicked.connect(self.previous_step)
+        self.cube_widget.turn_finished.connect(self._preview_pending_move)
 
         central_widget = QWidget()
         central_widget.setObjectName("centralWidget")
@@ -64,7 +65,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         self.cube_widget.set_state(self._state_at(self.current_step))
-        self._refresh_secondary_ui(animate_camera=False)
+        self._preview_pending_move()
+        self._update_status_ui()
 
     def next_step(self) -> None:
         if self.current_step >= len(self.scramble):
@@ -77,7 +79,7 @@ class MainWindow(QMainWindow):
         state_after = self._state_at(self.current_step)
 
         self.cube_widget.animate_turn(state_before, move, state_after)
-        self._refresh_secondary_ui(animate_camera=True)
+        self._update_status_ui()
 
     def previous_step(self) -> None:
         if self.current_step <= 0:
@@ -91,21 +93,26 @@ class MainWindow(QMainWindow):
 
         reverse_move = Move(undone_move.face, INVERSE_TURN[undone_move.turn])
         self.cube_widget.animate_turn(state_before, reverse_move, state_after)
-        self._refresh_secondary_ui(animate_camera=True)
+        self._update_status_ui()
 
     def _state_at(self, step: int) -> CubeState:
         return build_state(self.scramble[:step])
 
-    def _refresh_secondary_ui(self, animate_camera: bool) -> None:
-        pending_move = None
-
+    def _pending_move(self) -> Move | None:
         if self.current_step < len(self.scramble):
-            pending_move = self.scramble[self.current_step]
+            return self.scramble[self.current_step]
+
+        return None
+
+    def _preview_pending_move(self) -> None:
+        pending_move = self._pending_move()
 
         self.cube_widget.set_highlighted_face(
-            pending_move.face if pending_move else None,
-            animate=animate_camera,
+            pending_move.face if pending_move else None
         )
+
+    def _update_status_ui(self) -> None:
+        pending_move = self._pending_move()
 
         self.scramble_widget.set_moves(
             self.scramble,

@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPointF, Qt, QTimer
+from PySide6.QtCore import QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QMouseEvent,
@@ -53,7 +53,7 @@ _PROJECTION_SCALE = 0.28
 
 _DEGREES_PER_PIXEL = 0.4
 _ANIMATION_FRAME_INTERVAL_MS = 16
-_ANIMATION_STEPS_TOTAL = 12
+_LAYER_ANIMATION_STEPS_TOTAL = 34
 
 _INITIAL_ROTATION_X_DEG = -35.264
 _INITIAL_ROTATION_Y_DEG = 45
@@ -93,33 +93,6 @@ def _rotate_about_axis(vertex: Vector3, axis: int, angle: float) -> tuple[float,
     return (x * cos_a - y * sin_a, x * sin_a + y * cos_a, z)
 
 
-def _visible_faces(rotation_x: float, rotation_y: float) -> set[Face]:
-    depths = {
-        face: _rotate(normal, rotation_x, rotation_y)[2]
-        for face, normal in FACE_NORMALS.items()
-    }
-
-    ranked = sorted(depths, key=lambda face: depths[face], reverse=True)
-
-    return set(ranked[:3])
-
-
-def _build_camera_presets() -> list[tuple[float, float, set[Face]]]:
-    presets = []
-
-    for rx_deg in (-35.264, 35.264):
-        for ry_deg in (45, 135, 225, 315):
-            rx = math.radians(rx_deg)
-            ry = math.radians(ry_deg)
-
-            presets.append((rx, ry, _visible_faces(rx, ry)))
-
-    return presets
-
-
-_CAMERA_PRESETS = _build_camera_presets()
-
-
 def _shade(color: QColor, brightness: float) -> QColor:
     return QColor(
         int(color.red() * brightness),
@@ -150,6 +123,8 @@ class _LayerAnimation:
 
 
 class CubeWidget(QWidget):
+    turn_finished = Signal()
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -160,13 +135,6 @@ class CubeWidget(QWidget):
 
         self.rotation_x = math.radians(_INITIAL_ROTATION_X_DEG)
         self.rotation_y = math.radians(_INITIAL_ROTATION_Y_DEG)
-
-        self._camera_start_rotation = (self.rotation_x, self.rotation_y)
-        self._camera_target_rotation = (self.rotation_x, self.rotation_y)
-        self._camera_animation_step = 0
-
-        self._camera_animation_timer = QTimer(self)
-        self._camera_animation_timer.timeout.connect(self._advance_camera_animation)
 
         self._layer_animation: _LayerAnimation | None = None
         self._layer_animation_step = 0
@@ -182,7 +150,6 @@ class CubeWidget(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self._camera_animation_timer.stop()
             self._dragging = True
             self._last_mouse_pos = event.position()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -197,8 +164,6 @@ class CubeWidget(QWidget):
 
         self.rotation_y += math.radians(delta.x() * _DEGREES_PER_PIXEL)
         self.rotation_x -= math.radians(delta.y() * _DEGREES_PER_PIXEL)
-
-        self._camera_target_rotation = (self.rotation_x, self.rotation_y)
 
         self.update()
 
@@ -228,7 +193,7 @@ class CubeWidget(QWidget):
         self._layer_animation_step = 0
         self._layer_animation_timer.start(_ANIMATION_FRAME_INTERVAL_MS)
 
-        self.update()
+        self.set_highlighted_face(move.face)
 
     def _finish_layer_animation_immediately(self) -> None:
         if self._layer_animation is None:
@@ -238,13 +203,14 @@ class CubeWidget(QWidget):
         self.cube_state = self._pending_state_after
         self._layer_animation = None
         self._pending_state_after = None
+        self.turn_finished.emit()
 
     def _advance_layer_animation(self) -> None:
         animation = self._layer_animation
         assert animation is not None
 
         self._layer_animation_step += 1
-        t = min(1.0, self._layer_animation_step / _ANIMATION_STEPS_TOTAL)
+        t = min(1.0, self._layer_animation_step / _LAYER_ANIMATION_STEPS_TOTAL)
 
         animation.current_angle = animation.target_angle * _smoothstep(t)
         self.update()
@@ -252,58 +218,9 @@ class CubeWidget(QWidget):
         if t >= 1.0:
             self._finish_layer_animation_immediately()
 
-    def set_highlighted_face(self, face: Face | None, animate: bool = True) -> None:
+    def set_highlighted_face(self, face: Face | None) -> None:
         self.highlighted_face = face
-
-        if face is not None:
-            self._point_camera_at(face, animate)
-
         self.update()
-
-    def _point_camera_at(self, face: Face, animate: bool) -> None:
-        current_visible = _visible_faces(*self._camera_target_rotation)
-
-        candidates = [
-            preset
-            for preset in _CAMERA_PRESETS
-            if face in preset[2]
-        ]
-
-        best = max(
-            candidates,
-            key=lambda preset: len(preset[2] & current_visible),
-        )
-
-        target = (best[0], best[1])
-
-        if target == self._camera_target_rotation:
-            return
-
-        self._camera_target_rotation = target
-
-        if animate:
-            self._camera_start_rotation = (self.rotation_x, self.rotation_y)
-            self._camera_animation_step = 0
-            self._camera_animation_timer.start(_ANIMATION_FRAME_INTERVAL_MS)
-        else:
-            self.rotation_x, self.rotation_y = target
-
-    def _advance_camera_animation(self) -> None:
-        self._camera_animation_step += 1
-        t = min(1.0, self._camera_animation_step / _ANIMATION_STEPS_TOTAL)
-
-        eased = _smoothstep(t)
-
-        start_x, start_y = self._camera_start_rotation
-        target_x, target_y = self._camera_target_rotation
-
-        self.rotation_x = start_x + (target_x - start_x) * eased
-        self.rotation_y = start_y + (target_y - start_y) * eased
-
-        self.update()
-
-        if t >= 1.0:
-            self._camera_animation_timer.stop()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -377,7 +294,15 @@ class CubeWidget(QWidget):
     def _sticker_turn_angle(self, position: list[int]) -> float:
         animation = self._layer_animation
 
-        if animation is None or position[animation.axis] != animation.layer_value:
+        if animation is None:
+            return 0.0
+
+        return self._face_turn_angle(animation.axis, position[animation.axis])
+
+    def _face_turn_angle(self, fixed_axis: int, fixed_value: int) -> float:
+        animation = self._layer_animation
+
+        if animation is None or fixed_axis != animation.axis or fixed_value != animation.layer_value:
             return 0.0
 
         return animation.current_angle
@@ -394,9 +319,10 @@ class CubeWidget(QWidget):
 
     def _draw_face_outline(self, painter: QPainter, face: Face) -> None:
         fixed_axis, fixed_value, axis_a, axis_b = FACE_GRID_AXES[face]
+        turn_angle = self._face_turn_angle(fixed_axis, fixed_value)
 
         polygon = self._project_face_polygon(
-            fixed_axis, fixed_value, axis_a, axis_b, _OUTLINE_BOUNDS
+            fixed_axis, fixed_value, axis_a, axis_b, _OUTLINE_BOUNDS, turn_angle
         )
 
         painter.setBrush(QColor(0, 0, 0, 0))
