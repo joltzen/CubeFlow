@@ -29,6 +29,7 @@ FACE_COLORS: dict[Face, QColor] = {
 HIGHLIGHT_COLOR = QColor("#00e5ff")
 BACKGROUND_COLOR = QColor("#202020")
 STICKER_BORDER_COLOR = QColor("black")
+CUBE_BODY_COLOR = QColor("#111111")
 
 FACE_GRID_AXES: dict[Face, tuple[int, int, int, int]] = {
     Face.RIGHT: (0, 1, 1, 2),
@@ -43,7 +44,7 @@ _CELL_BOUNDS = [-1.0, -1 / 3, 1 / 3, 1.0]
 _OUTLINE_BOUNDS = ((-1, -1), (1, -1), (1, 1), (-1, 1))
 
 _BACKGROUND_CORNER_RADIUS = 16
-_STICKER_BORDER_WIDTH = 2
+_STICKER_BORDER_WIDTH = 4
 _HIGHLIGHT_BORDER_WIDTH = 5
 
 _SHADING_BASE = 0.5
@@ -55,8 +56,8 @@ _DEGREES_PER_PIXEL = 0.4
 _ANIMATION_FRAME_INTERVAL_MS = 16
 _LAYER_ANIMATION_STEPS_TOTAL = 34
 
-_INITIAL_ROTATION_X_DEG = -35.264
-_INITIAL_ROTATION_Y_DEG = 45
+_INITIAL_ROTATION_X_DEG = 35.264
+_INITIAL_ROTATION_Y_DEG = -45
 
 _QUARTER_TURN_DEG = 90
 
@@ -120,6 +121,13 @@ class _LayerAnimation:
     target_angle: float
     state_before: CubeState
     current_angle: float = 0.0
+
+
+@dataclass
+class _StickerDraw:
+    depth: float
+    brush_color: QColor
+    polygon: QPolygonF
 
 
 class CubeWidget(QWidget):
@@ -239,21 +247,30 @@ class CubeWidget(QWidget):
         painter.fillPath(background_path, BACKGROUND_COLOR)
         painter.setClipPath(background_path)
 
-        face_depths = []
+        stickers = []
 
-        for face, normal in FACE_NORMALS.items():
-            depth = _rotate(normal, self.rotation_x, self.rotation_y)[2]
-            face_depths.append((depth, face))
+        for face in FACE_NORMALS:
+            stickers.extend(self._face_stickers(face))
 
-        face_depths.sort(key=lambda item: item[0])
+        backer = self._layer_gap_backer()
+        if backer is not None:
+            stickers.append(backer)
 
-        for _, face in face_depths:
-            self._draw_face(painter, face)
+        stickers.sort(key=lambda sticker: sticker.depth)
+
+        for sticker in stickers:
+            painter.setBrush(sticker.brush_color)
+            painter.setPen(QPen(STICKER_BORDER_COLOR, _STICKER_BORDER_WIDTH))
+            painter.drawPolygon(sticker.polygon)
+
+        if self.highlighted_face is not None:
+            self._draw_face_outline(painter, self.highlighted_face)
 
         painter.end()
 
-    def _draw_face(self, painter: QPainter, face: Face) -> None:
+    def _face_stickers(self, face: Face) -> list[_StickerDraw]:
         fixed_axis, fixed_value, axis_a, axis_b = FACE_GRID_AXES[face]
+        stickers = []
 
         for row in range(3):
             for col in range(3):
@@ -269,7 +286,7 @@ class CubeWidget(QWidget):
                 state = self.cube_state if turn_angle == 0.0 else self._layer_animation.state_before
                 color = state.get_sticker(tuple(position), tuple(normal))
 
-                polygon = self._project_face_polygon(
+                polygon, depth = self._project_face_polygon(
                     fixed_axis,
                     fixed_value,
                     axis_a,
@@ -284,12 +301,28 @@ class CubeWidget(QWidget):
                 )
 
                 brightness = self._sticker_brightness(tuple(normal), turn_angle)
-                painter.setBrush(_shade(FACE_COLORS[color], brightness))
-                painter.setPen(QPen(STICKER_BORDER_COLOR, _STICKER_BORDER_WIDTH))
-                painter.drawPolygon(polygon)
+                brush_color = _shade(FACE_COLORS[color], brightness)
+                stickers.append(_StickerDraw(depth=depth, brush_color=brush_color, polygon=polygon))
 
-        if face == self.highlighted_face:
-            self._draw_face_outline(painter, face)
+        return stickers
+
+    def _layer_gap_backer(self) -> _StickerDraw | None:
+        animation = self._layer_animation
+
+        if animation is None:
+            return None
+
+        turning_face = next(
+            face
+            for face, (fixed_axis, fixed_value, _, _) in FACE_GRID_AXES.items()
+            if fixed_axis == animation.axis and fixed_value == animation.layer_value
+        )
+        fixed_axis, fixed_value, axis_a, axis_b = FACE_GRID_AXES[turning_face]
+
+        polygon, _ = self._project_face_polygon(
+            fixed_axis, fixed_value, axis_a, axis_b, _OUTLINE_BOUNDS
+        )
+        return _StickerDraw(depth=float("-inf"), brush_color=CUBE_BODY_COLOR, polygon=polygon)
 
     def _sticker_turn_angle(self, position: list[int]) -> float:
         animation = self._layer_animation
@@ -321,7 +354,7 @@ class CubeWidget(QWidget):
         fixed_axis, fixed_value, axis_a, axis_b = FACE_GRID_AXES[face]
         turn_angle = self._face_turn_angle(fixed_axis, fixed_value)
 
-        polygon = self._project_face_polygon(
+        polygon, _ = self._project_face_polygon(
             fixed_axis, fixed_value, axis_a, axis_b, _OUTLINE_BOUNDS, turn_angle
         )
 
@@ -337,8 +370,9 @@ class CubeWidget(QWidget):
         axis_b: int,
         corners: tuple[tuple[float, float], ...],
         turn_angle: float = 0.0,
-    ) -> QPolygonF:
+    ) -> tuple[QPolygonF, float]:
         polygon = QPolygonF()
+        depths = []
 
         for a, b in corners:
             corner = [0.0, 0.0, 0.0]
@@ -352,9 +386,10 @@ class CubeWidget(QWidget):
                 )
 
             rotated = _rotate(tuple(corner), self.rotation_x, self.rotation_y)
+            depths.append(rotated[2])
             polygon.append(self._project_vertex(rotated))
 
-        return polygon
+        return polygon, sum(depths) / len(depths)
 
     def _project_vertex(self, vertex: tuple[float, float, float]) -> QPointF:
         x, y, _ = vertex
