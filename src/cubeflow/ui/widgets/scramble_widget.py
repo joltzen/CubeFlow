@@ -11,13 +11,13 @@ _DONE_STYLE = "color: #4a4b58; text-decoration: line-through;"
 
 
 class ScrambleWidget(QWidget):
-    def __init__(self, scramble_text: str = "") -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.setObjectName("scrambleCard")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        self.scramble_label = QLabel(scramble_text)
+        self.scramble_label = QLabel()
         self.scramble_label.setObjectName("scrambleLabel")
         self.scramble_label.setTextFormat(Qt.TextFormat.RichText)
 
@@ -28,9 +28,6 @@ class ScrambleWidget(QWidget):
         layout.addWidget(self.scramble_label)
 
         self.setLayout(layout)
-
-    def set_scramble(self, scramble_text: str) -> None:
-        self.scramble_label.setText(scramble_text)
 
     def set_moves(self, moves: list[Move], highlight_index: int | None) -> None:
         done_count = highlight_index if highlight_index is not None else len(moves)

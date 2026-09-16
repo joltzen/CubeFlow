@@ -4,6 +4,7 @@ from PySide6.QtCore import QPointF, Qt, QTimer
 from PySide6.QtGui import (
     QColor,
     QMouseEvent,
+    QPaintEvent,
     QPainter,
     QPainterPath,
     QPen,
@@ -24,6 +25,8 @@ FACE_COLORS: dict[Face, QColor] = {
 }
 
 HIGHLIGHT_COLOR = QColor("#00e5ff")
+BACKGROUND_COLOR = QColor("#202020")
+STICKER_BORDER_COLOR = QColor("black")
 
 FACE_GRID_AXES: dict[Face, tuple[int, int, int, int]] = {
     Face.RIGHT: (0, 1, 1, 2),
@@ -35,6 +38,23 @@ FACE_GRID_AXES: dict[Face, tuple[int, int, int, int]] = {
 }
 
 _CELL_BOUNDS = [-1.0, -1 / 3, 1 / 3, 1.0]
+_OUTLINE_BOUNDS = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+
+_BACKGROUND_CORNER_RADIUS = 16
+_STICKER_BORDER_WIDTH = 2
+_HIGHLIGHT_BORDER_WIDTH = 5
+
+_SHADING_BASE = 0.5
+_SHADING_DEPTH_FACTOR = 0.7
+
+_PROJECTION_SCALE = 0.28
+
+_DEGREES_PER_PIXEL = 0.4
+_ANIMATION_FRAME_INTERVAL_MS = 16
+_ANIMATION_STEPS_TOTAL = 12
+
+_INITIAL_ROTATION_X_DEG = -35.264
+_INITIAL_ROTATION_Y_DEG = 45
 
 
 def _rotate(vertex: Vector3, rotation_x: float, rotation_y: float) -> tuple[float, float, float]:
@@ -96,13 +116,12 @@ class CubeWidget(QWidget):
         self.cube_state = CubeState()
         self.highlighted_face: Face | None = None
 
-        self.rotation_x = math.radians(-35.264)
-        self.rotation_y = math.radians(45)
+        self.rotation_x = math.radians(_INITIAL_ROTATION_X_DEG)
+        self.rotation_y = math.radians(_INITIAL_ROTATION_Y_DEG)
 
         self._start_rotation = (self.rotation_x, self.rotation_y)
         self._target_rotation = (self.rotation_x, self.rotation_y)
         self._animation_step = 0
-        self._animation_steps_total = 12
 
         self._animation_timer = QTimer(self)
         self._animation_timer.timeout.connect(self._advance_animation)
@@ -127,10 +146,8 @@ class CubeWidget(QWidget):
         delta = pos - self._last_mouse_pos
         self._last_mouse_pos = pos
 
-        degrees_per_pixel = 0.4
-
-        self.rotation_y += math.radians(delta.x() * degrees_per_pixel)
-        self.rotation_x -= math.radians(delta.y() * degrees_per_pixel)
+        self.rotation_y += math.radians(delta.x() * _DEGREES_PER_PIXEL)
+        self.rotation_x -= math.radians(delta.y() * _DEGREES_PER_PIXEL)
 
         self._target_rotation = (self.rotation_x, self.rotation_y)
 
@@ -177,13 +194,13 @@ class CubeWidget(QWidget):
         if animate:
             self._start_rotation = (self.rotation_x, self.rotation_y)
             self._animation_step = 0
-            self._animation_timer.start(16)
+            self._animation_timer.start(_ANIMATION_FRAME_INTERVAL_MS)
         else:
             self.rotation_x, self.rotation_y = target
 
     def _advance_animation(self) -> None:
         self._animation_step += 1
-        t = min(1.0, self._animation_step / self._animation_steps_total)
+        t = min(1.0, self._animation_step / _ANIMATION_STEPS_TOTAL)
 
         eased = t * t * (3 - 2 * t)
 
@@ -198,16 +215,21 @@ class CubeWidget(QWidget):
         if t >= 1.0:
             self._animation_timer.stop()
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         background_path = QPainterPath()
         background_path.addRoundedRect(
-            0, 0, self.width(), self.height(), 16, 16
+            0,
+            0,
+            self.width(),
+            self.height(),
+            _BACKGROUND_CORNER_RADIUS,
+            _BACKGROUND_CORNER_RADIUS,
         )
-        painter.fillPath(background_path, QColor("#202020"))
+        painter.fillPath(background_path, BACKGROUND_COLOR)
         painter.setClipPath(background_path)
 
         face_depths = []
@@ -229,7 +251,7 @@ class CubeWidget(QWidget):
         depth = _rotate(
             FACE_NORMALS[face], self.rotation_x, self.rotation_y
         )[2]
-        brightness = max(0.0, min(1.0, 0.5 + depth * 0.7))
+        brightness = max(0.0, min(1.0, _SHADING_BASE + depth * _SHADING_DEPTH_FACTOR))
 
         for row in range(3):
             for col in range(3):
@@ -245,26 +267,21 @@ class CubeWidget(QWidget):
                     tuple(position), tuple(normal)
                 )
 
-                polygon = QPolygonF()
-
-                for a, b in (
-                    (_CELL_BOUNDS[row], _CELL_BOUNDS[col]),
-                    (_CELL_BOUNDS[row + 1], _CELL_BOUNDS[col]),
-                    (_CELL_BOUNDS[row + 1], _CELL_BOUNDS[col + 1]),
-                    (_CELL_BOUNDS[row], _CELL_BOUNDS[col + 1]),
-                ):
-                    corner = [0.0, 0.0, 0.0]
-                    corner[fixed_axis] = fixed_value
-                    corner[axis_a] = a
-                    corner[axis_b] = b
-
-                    rotated = _rotate(
-                        tuple(corner), self.rotation_x, self.rotation_y
-                    )
-                    polygon.append(self.project_vertex(rotated))
+                polygon = self._project_face_polygon(
+                    fixed_axis,
+                    fixed_value,
+                    axis_a,
+                    axis_b,
+                    (
+                        (_CELL_BOUNDS[row], _CELL_BOUNDS[col]),
+                        (_CELL_BOUNDS[row + 1], _CELL_BOUNDS[col]),
+                        (_CELL_BOUNDS[row + 1], _CELL_BOUNDS[col + 1]),
+                        (_CELL_BOUNDS[row], _CELL_BOUNDS[col + 1]),
+                    ),
+                )
 
                 painter.setBrush(_shade(FACE_COLORS[color], brightness))
-                painter.setPen(QPen(QColor("black"), 2))
+                painter.setPen(QPen(STICKER_BORDER_COLOR, _STICKER_BORDER_WIDTH))
                 painter.drawPolygon(polygon)
 
         if face == self.highlighted_face:
@@ -273,33 +290,40 @@ class CubeWidget(QWidget):
     def _draw_face_outline(self, painter: QPainter, face: Face) -> None:
         fixed_axis, fixed_value, axis_a, axis_b = FACE_GRID_AXES[face]
 
+        polygon = self._project_face_polygon(
+            fixed_axis, fixed_value, axis_a, axis_b, _OUTLINE_BOUNDS
+        )
+
+        painter.setBrush(QColor(0, 0, 0, 0))
+        painter.setPen(QPen(HIGHLIGHT_COLOR, _HIGHLIGHT_BORDER_WIDTH))
+        painter.drawPolygon(polygon)
+
+    def _project_face_polygon(
+        self,
+        fixed_axis: int,
+        fixed_value: int,
+        axis_a: int,
+        axis_b: int,
+        corners: tuple[tuple[float, float], ...],
+    ) -> QPolygonF:
         polygon = QPolygonF()
 
-        for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        for a, b in corners:
             corner = [0.0, 0.0, 0.0]
             corner[fixed_axis] = fixed_value
             corner[axis_a] = a
             corner[axis_b] = b
 
             rotated = _rotate(tuple(corner), self.rotation_x, self.rotation_y)
-            polygon.append(self.project_vertex(rotated))
+            polygon.append(self._project_vertex(rotated))
 
-        painter.setBrush(QColor(0, 0, 0, 0))
-        painter.setPen(QPen(HIGHLIGHT_COLOR, 5))
-        painter.drawPolygon(polygon)
+        return polygon
 
-    def project_vertex(
-        self,
-        vertex: tuple[float, float, float],
-    ) -> QPointF:
-
+    def _project_vertex(self, vertex: tuple[float, float, float]) -> QPointF:
         x, y, _ = vertex
-        scale = min(self.width(), self.height()) * 0.28
+        scale = min(self.width(), self.height()) * _PROJECTION_SCALE
 
         screen_x = self.width() / 2 + x * scale
         screen_y = self.height() / 2 - y * scale
 
-        return QPointF(
-            screen_x,
-            screen_y,
-        )
+        return QPointF(screen_x, screen_y)

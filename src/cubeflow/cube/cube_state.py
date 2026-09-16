@@ -59,6 +59,10 @@ _TURN_REPEATS = {
 }
 
 
+def _is_sticker_visible(position: Vector3, normal: Vector3) -> bool:
+    return any(normal[axis] * position[axis] > 0 for axis in range(3))
+
+
 def _solved_cubies() -> dict[Vector3, dict[Vector3, Face]]:
     cubies: dict[Vector3, dict[Vector3, Face]] = {}
 
@@ -69,15 +73,11 @@ def _solved_cubies() -> dict[Vector3, dict[Vector3, Face]]:
                     continue
 
                 position = (x, y, z)
-                stickers: dict[Vector3, Face] = {}
-
-                for face, normal in FACE_NORMALS.items():
-                    if (
-                        normal[0] * x > 0
-                        or normal[1] * y > 0
-                        or normal[2] * z > 0
-                    ):
-                        stickers[normal] = face
+                stickers: dict[Vector3, Face] = {
+                    normal: face
+                    for face, normal in FACE_NORMALS.items()
+                    if _is_sticker_visible(position, normal)
+                }
 
                 cubies[position] = stickers
 
