@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QMainWindow, QVBoxLayout, QWidget
 
-from cubeflow.cube.cube_state import CubeState
-from cubeflow.cube.enums import Face, Turn
+from cubeflow.cube.cube_state import CubeState, build_state
+from cubeflow.cube.enums import INVERSE_TURN, Face, Turn
 from cubeflow.cube.move import Move
 from cubeflow.cube.scramble_generator import ScrambleGenerator
 from cubeflow.ui.widgets.cube_widget import CubeWidget
@@ -63,26 +63,40 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central_widget)
 
-        self.update_view(animate=False)
+        self.cube_widget.set_state(self._state_at(self.current_step))
+        self._refresh_secondary_ui(animate_camera=False)
 
     def next_step(self) -> None:
-        if self.current_step < len(self.scramble):
-            self.current_step += 1
-            self.update_view(animate=True)
+        if self.current_step >= len(self.scramble):
+            return
+
+        move = self.scramble[self.current_step]
+        state_before = self._state_at(self.current_step)
+
+        self.current_step += 1
+        state_after = self._state_at(self.current_step)
+
+        self.cube_widget.animate_turn(state_before, move, state_after)
+        self._refresh_secondary_ui(animate_camera=True)
 
     def previous_step(self) -> None:
-        if self.current_step > 0:
-            self.current_step -= 1
-            self.update_view(animate=True)
+        if self.current_step <= 0:
+            return
 
-    def update_view(self, animate: bool) -> None:
-        state = CubeState()
+        undone_move = self.scramble[self.current_step - 1]
+        state_before = self._state_at(self.current_step)
 
-        for move in self.scramble[: self.current_step]:
-            state.apply_move(move)
+        self.current_step -= 1
+        state_after = self._state_at(self.current_step)
 
-        self.cube_widget.set_state(state)
+        reverse_move = Move(undone_move.face, INVERSE_TURN[undone_move.turn])
+        self.cube_widget.animate_turn(state_before, reverse_move, state_after)
+        self._refresh_secondary_ui(animate_camera=True)
 
+    def _state_at(self, step: int) -> CubeState:
+        return build_state(self.scramble[:step])
+
+    def _refresh_secondary_ui(self, animate_camera: bool) -> None:
         pending_move = None
 
         if self.current_step < len(self.scramble):
@@ -90,7 +104,7 @@ class MainWindow(QMainWindow):
 
         self.cube_widget.set_highlighted_face(
             pending_move.face if pending_move else None,
-            animate=animate,
+            animate=animate_camera,
         )
 
         self.scramble_widget.set_moves(

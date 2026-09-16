@@ -59,6 +59,11 @@ _TURN_REPEATS = {
 }
 
 
+def face_axis(face: Face) -> tuple[int, int]:
+    axis_index, layer_value, _ = _FACE_TURN_DATA[face]
+    return axis_index, layer_value
+
+
 def _is_sticker_visible(position: Vector3, normal: Vector3) -> bool:
     return any(normal[axis] * position[axis] > 0 for axis in range(3))
 
