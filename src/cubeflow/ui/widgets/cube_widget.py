@@ -184,6 +184,15 @@ class CubeWidget(QWidget):
         self.cube_state = cube_state
         self.update()
 
+    def reset_to_solved(self) -> None:
+        self._layer_animation_timer.stop()
+        self._layer_animation = None
+        self._pending_state_after = None
+
+        self.cube_state = CubeState()
+        self.highlighted_face = None
+        self.update()
+
     def animate_turn(self, state_before: CubeState, move: Move, state_after: CubeState) -> None:
         self._finish_layer_animation_immediately()
 

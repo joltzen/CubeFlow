@@ -33,12 +33,9 @@ class MainWindow(QMainWindow):
         self.resize(1080, 760)
 
         self.scramble_generator = ScrambleGenerator()
-        self.current_step = 0
         self.setup_ui()
 
     def setup_ui(self) -> None:
-        self.scramble = self.scramble_generator.generate()
-
         self.scramble_widget = ScrambleWidget()
         self.status_label = QLabel()
         self.status_label.setObjectName("statusLabel")
@@ -48,6 +45,7 @@ class MainWindow(QMainWindow):
 
         self.navigation_widget.next_clicked.connect(self.next_step)
         self.navigation_widget.previous_clicked.connect(self.previous_step)
+        self.navigation_widget.new_scramble_clicked.connect(self.start_new_scramble)
         self.cube_widget.turn_finished.connect(self._preview_pending_move)
 
         central_widget = QWidget()
@@ -64,7 +62,13 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central_widget)
 
-        self.cube_widget.set_state(self._state_at(self.current_step))
+        self.start_new_scramble()
+
+    def start_new_scramble(self) -> None:
+        self.scramble = self.scramble_generator.generate()
+        self.current_step = 0
+
+        self.cube_widget.reset_to_solved()
         self._preview_pending_move()
         self._update_status_ui()
 

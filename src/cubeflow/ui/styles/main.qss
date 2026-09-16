@@ -109,3 +109,25 @@ QPushButton#prevButton:disabled {
     color: #55565f;
     border-color: #2a2b33;
 }
+
+QPushButton#newScrambleButton {
+    color: #9a9ba8;
+    font-size: 13px;
+    font-weight: 600;
+
+    padding: 8px 20px;
+
+    border: none;
+    border-radius: 8px;
+
+    background-color: transparent;
+}
+
+QPushButton#newScrambleButton:hover {
+    color: #d0d1db;
+    background-color: #24252e;
+}
+
+QPushButton#newScrambleButton:pressed {
+    background-color: #1e1f26;
+}
